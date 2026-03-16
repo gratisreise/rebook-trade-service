@@ -1,21 +1,19 @@
 package com.example.rebooktradeservice.domain.trade.service;
 
-import com.rebook.common.core.response.PageResponse;
 import com.example.rebooktradeservice.common.enums.State;
-import com.example.rebooktradeservice.domain.trade.exception.TradeException;
-import com.example.rebooktradeservice.clientfeign.book.BookClient;
+import com.example.rebooktradeservice.common.exception.TradeException;
+import com.example.rebooktradeservice.domain.outbox.OutboxWriter;
 import com.example.rebooktradeservice.domain.trade.model.dto.TradeRequest;
 import com.example.rebooktradeservice.domain.trade.model.dto.TradeResponse;
-import com.example.rebooktradeservice.domain.outbox.Outbox;
 import com.example.rebooktradeservice.domain.trade.model.entity.Trade;
 import com.example.rebooktradeservice.domain.trade.model.entity.compositekey.TradeUserId;
+import com.example.rebooktradeservice.domain.trade.service.reader.TradeReader;
+import com.example.rebooktradeservice.domain.trade.service.reader.TradeUserReader;
+import com.example.rebooktradeservice.domain.trade.service.writer.TradeWriter;
 import com.example.rebooktradeservice.external.rabbitmq.message.NotificationTradeMessage;
-import com.example.rebooktradeservice.domain.outbox.OutBoxRepository;
-import com.example.rebooktradeservice.domain.trade.repository.TradeRepository;
-import com.example.rebooktradeservice.domain.trade.repository.TradeUserRepository;
 import com.example.rebooktradeservice.external.s3.S3Service;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.rebooktradeservice.clientfeign.book.BookClient;
+import com.rebook.common.core.response.PageResponse;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -31,126 +29,158 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class TradeService {
 
-    private final TradeRepository tradeRepository;
     private final TradeReader tradeReader;
+    private final TradeWriter tradeWriter;
+    private final TradeUserReader tradeUserReader;
+    private final OutboxWriter outboxWriter;
     private final BookClient bookClient;
     private final S3Service s3Service;
-    private final TradeUserRepository tradeUserRepository;
-    private final OutBoxRepository outBoxRepository;
-    private final ObjectMapper objectMapper;
+
 
     @Transactional
     public void postTrade(TradeRequest request, String userId, MultipartFile file) throws IOException {
+        // 1. S3에 이미지 업로드
         String imageUrl = s3Service.upload(file);
-        Trade trade = new Trade(request, imageUrl, userId);
-        tradeRepository.save(trade);
 
+        // 2. Trade 엔티티 생성 및 저장
+        Trade trade = new Trade(request, imageUrl, userId);
+        tradeWriter.save(trade);
+
+        // 3. 찜한 사용자들에게 알림 발송 (Outbox 패턴)
         String content = "찜한 도서의 새로운 거래가 등록되었습니다.";
         NotificationTradeMessage message = new NotificationTradeMessage(trade.getId(), content, request.bookId());
-        saveOutBox(message);
-    }
-
-    private void saveOutBox(NotificationTradeMessage message) throws JsonProcessingException {
-        String payload = objectMapper.writeValueAsString(message);
-        Outbox outBox = new Outbox();
-        outBox.setPayload(payload);
-        outBoxRepository.save(outBox);
-    }
-
-    public TradeResponse getTrade(String userId, Long tradeId) {
-        Trade trade = tradeReader.findById(tradeId);
-        TradeResponse response = new TradeResponse(trade);
-        return checkMarking(response, userId);
+        outboxWriter.save(message);
     }
 
     @Transactional
     public void updateState(Long tradeId, State state, String userId) {
+        // 1. Trade 조회
         Trade trade = tradeReader.findById(tradeId);
-        if (!trade.getUserId().equals(userId)) {
-            log.error("Unauthorized updateTrade Access");
-            throw TradeException.unauthorized("Unauthorized user Access");
-        }
+
+        // 2. 권한 검증 (본인 거래인지 확인)
+        validateOwnership(trade, userId);
+
+        // 3. 상태 변경
         trade.setState(state);
     }
 
     @Transactional
     public void updateTrade(TradeRequest request, String userId, Long tradeId, MultipartFile file)
         throws IOException {
+        // 1. Trade 조회
         Trade trade = tradeReader.findById(tradeId);
-        if (!trade.getUserId().equals(userId)) {
-            log.error("Unauthorized updateState Access");
-            throw TradeException.unauthorized("Unauthorized user Access");
-        }
 
+        // 2. 권한 검증
+        validateOwnership(trade, userId);
+
+        // 3. 가격 변동 시 알림 발송
         if (request.price() != trade.getPrice()) {
             String content = "찜한 제품의 가격이 변동되었습니다.";
-            NotificationTradeMessage message =
-                new NotificationTradeMessage(tradeId, content, request.bookId());
-            saveOutBox(message);
+            NotificationTradeMessage message = new NotificationTradeMessage(tradeId, content, request.bookId());
+            outboxWriter.save(message);
         }
 
+        // 4. 이미지 업데이트 (새 이미지가 있는 경우)
         if (file != null) {
             String imageUrl = s3Service.upload(file);
             trade.setImageUrl(imageUrl);
         }
 
+        // 5. Trade 정보 업데이트
         trade.update(request, userId);
-    }
-
-    public PageResponse<TradeResponse> getTrades(String userId, Pageable pageable) {
-        Page<Trade> trades = tradeReader.readTrades(userId, pageable);
-        Page<TradeResponse> responses = trades.map(TradeResponse::new)
-            .map(res -> checkMarking(res, userId));
-        return PageResponse.from(responses);
     }
 
     @Transactional
     public void deleteTrade(Long tradeId, String userId) {
-        if (!tradeRepository.existsById(tradeId)) {
+        // 1. Trade 존재 여부 확인
+        if (!tradeReader.existsById(tradeId)) {
             log.error("Data is not found");
             throw TradeException.notFound("Data is not found");
         }
 
+        // 2. Trade 조회
         Trade trade = tradeReader.findById(tradeId);
 
-        if (!trade.getUserId().equals(userId)) {
-            log.error("Unauthorized deleteTrade Access");
-            throw TradeException.unauthorized("Unauthorized user Access");
-        }
+        // 3. 권한 검증
+        validateOwnership(trade, userId);
 
-        tradeRepository.deleteById(tradeId);
+        // 4. 삭제
+        tradeWriter.deleteById(tradeId);
+    }
+
+
+    public TradeResponse getTrade(String userId, Long tradeId) {
+        // 1. Trade 조회
+        Trade trade = tradeReader.findById(tradeId);
+
+        // 2. DTO 변환 및 찜 여부 체크
+        TradeResponse response = new TradeResponse(trade);
+        return checkMarking(response, userId);
+    }
+
+    public PageResponse<TradeResponse> getTrades(String userId, Pageable pageable) {
+        // 1. 사용자의 Trade 목록 조회
+        Page<Trade> trades = tradeReader.findByUserId(userId, pageable);
+
+        // 2. DTO 변환 및 찜 여부 체크
+        Page<TradeResponse> responses = trades.map(TradeResponse::new)
+            .map(res -> checkMarking(res, userId));
+
+        return PageResponse.from(responses);
     }
 
     public PageResponse<TradeResponse> getAllTrades(String userId, Long bookId, Pageable pageable) {
-        Page<Trade> trades = tradeReader.getAllTrades(bookId, pageable);
+        // 1. 책별 Trade 목록 조회
+        Page<Trade> trades = tradeReader.findByBookId(bookId, pageable);
+
+        // 2. DTO 변환 및 찜 여부 체크
         Page<TradeResponse> responses = trades.map(TradeResponse::new)
             .map(res -> checkMarking(res, userId));
+
         return PageResponse.from(responses);
     }
 
     public PageResponse<TradeResponse> getRecommendations(String userId, Pageable pageable) {
+        // 1. 추천 책 ID 목록 조회 (BookClient 호출)
         List<Long> bookIds = bookClient.getRecommendedBooks(userId);
         log.info("Recommendations: {}", bookIds.toString());
 
-        if (bookIds.isEmpty())
+        // 2. 추천 책이 없으면 빈 페이지 반환
+        if (bookIds.isEmpty()) {
             return PageResponse.from(Page.empty());
+        }
 
-        Page<Trade> trades = tradeReader.getRecommendations(bookIds, pageable);
+        // 3. 추천 책들의 Trade 목록 조회
+        Page<Trade> trades = tradeReader.findByBookIdIn(bookIds, pageable);
+
+        // 4. DTO 변환 및 찜 여부 체크
         Page<TradeResponse> responses = trades.map(TradeResponse::new)
             .map(res -> checkMarking(res, userId));
+
         return PageResponse.from(responses);
     }
 
+    public PageResponse<TradeResponse> getOthersTrades(String userId, Pageable pageable) {
+        // 1. 타인의 Trade 목록 조회
+        Page<Trade> trades = tradeReader.findByUserId(userId, pageable);
+
+        // 2. DTO 변환
+        Page<TradeResponse> responses = trades.map(TradeResponse::new);
+
+        return PageResponse.from(responses);
+    }
+
+    private void validateOwnership(Trade trade, String userId) {
+        if (!trade.getUserId().equals(userId)) {
+            throw TradeException.unauthorized("Unauthorized user Access");
+        }
+    }
+
     private TradeResponse checkMarking(TradeResponse res, String userId) {
-        long tradeId = res.tradeId();
-        TradeUserId tradeUserId = new TradeUserId(tradeId, userId);
-        if (tradeUserRepository.existsByTradeUserId(tradeUserId)) {
+        TradeUserId tradeUserId = new TradeUserId(res.tradeId(), userId);
+        if (tradeUserReader.isMarked(tradeUserId)) {
             return res.withMarked(true);
         }
         return res;
-    }
-
-    public PageResponse<TradeResponse> getOthersTrades(String userId, Pageable pageable) {
-        return tradeReader.getOthersTrades(userId, pageable);
     }
 }

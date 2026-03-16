@@ -7,10 +7,11 @@ import com.example.rebooktradeservice.common.enums.State;
 import com.example.rebooktradeservice.domain.trade.model.dto.TradeRequest;
 import com.example.rebooktradeservice.domain.trade.model.dto.TradeResponse;
 import com.rebook.common.auth.PassportUser;
-import com.example.rebooktradeservice.domain.trade.service.TradeReader;
 import com.example.rebooktradeservice.domain.trade.service.TradeService;
+import com.example.rebooktradeservice.domain.trade.service.TradeUserService;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -32,8 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class TradeController {
 
     private final TradeService tradeService;
-    private final TradeReader tradeReader;
-
+    private final TradeUserService tradeUserService;
 
     @GetMapping("/test")
     public String test(@PassportUser Passport passport) {
@@ -109,5 +109,19 @@ public class TradeController {
         @PageableDefault Pageable pageable
     ) {
         return SuccessResponse.toOk(tradeService.getOthersTrades(userId, pageable));
+    }
+
+    @PostMapping("/{tradeId}/marks")
+    public ResponseEntity<Void> tradeMark(@PassportUser String userId, @PathVariable Long tradeId) {
+        tradeUserService.tradeMark(userId, tradeId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/marks")
+    public ResponseEntity<SuccessResponse<Page<TradeResponse>>> getMarkedTrades(
+        @PassportUser String userId,
+        @PageableDefault Pageable pageable
+    ) {
+        return SuccessResponse.toOk(tradeUserService.getMarkedTrades(userId, pageable));
     }
 }

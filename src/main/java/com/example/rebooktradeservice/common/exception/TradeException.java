@@ -1,11 +1,8 @@
-package com.example.rebooktradeservice.domain.trade.exception;
+package com.example.rebooktradeservice.common.exception;
 
 import com.rebook.common.core.exception.BusinessException;
 import com.rebook.common.core.exception.ErrorCode;
 
-/**
- * Trade 도메인 관련 예외
- */
 public class TradeException extends BusinessException {
 
     private TradeException(ErrorCode code) {

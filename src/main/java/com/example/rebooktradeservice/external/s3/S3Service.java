@@ -1,6 +1,6 @@
 package com.example.rebooktradeservice.external.s3;
 
-import com.example.rebooktradeservice.domain.trade.exception.TradeException;
+import com.example.rebooktradeservice.common.exception.TradeException;
 import java.io.IOException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
