@@ -41,13 +41,13 @@ public class TradeController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> postTrade(
+    public ResponseEntity<SuccessResponse<Void>> postTrade(
         @PassportUser String userId,
         @RequestPart TradeRequest request,
         @RequestPart MultipartFile file)
         throws IOException {
         tradeService.postTrade(request, userId, file);
-        return ResponseEntity.ok().build();
+        return SuccessResponse.toNoContent();
     }
 
     @GetMapping("/{tradeId}")
@@ -57,23 +57,23 @@ public class TradeController {
     }
 
     @PatchMapping("/{tradeId}")
-    public ResponseEntity<Void> updateState(
+    public ResponseEntity<SuccessResponse<Void>> updateState(
         @PathVariable Long tradeId,
         @RequestParam State state,
         @PassportUser String userId
     ) {
         tradeService.updateState(tradeId, state, userId);
-        return ResponseEntity.ok().build();
+        return SuccessResponse.toNoContent();
     }
 
     @PutMapping("/{tradeId}")
-    public ResponseEntity<Void> updateTrade(
+    public ResponseEntity<SuccessResponse<Void>> updateTrade(
         @PathVariable Long tradeId, @PassportUser String userId,
         @RequestPart TradeRequest request,
         @RequestPart(required = false) MultipartFile file
     ) throws IOException {
         tradeService.updateTrade(request, userId, tradeId, file);
-        return ResponseEntity.ok().build();
+        return SuccessResponse.toNoContent();
     }
 
     @GetMapping("/me")
@@ -84,9 +84,9 @@ public class TradeController {
     }
 
     @DeleteMapping("/{tradeId}")
-    public ResponseEntity<Void> deleteTrade(@PathVariable Long tradeId, @PassportUser String userId) {
+    public ResponseEntity<SuccessResponse<Void>> deleteTrade(@PathVariable Long tradeId, @PassportUser String userId) {
         tradeService.deleteTrade(tradeId, userId);
-        return ResponseEntity.ok().build();
+        return SuccessResponse.toNoContent();
     }
 
     @GetMapping("/books/{bookId}")
@@ -112,9 +112,9 @@ public class TradeController {
     }
 
     @PostMapping("/{tradeId}/marks")
-    public ResponseEntity<Void> tradeMark(@PassportUser String userId, @PathVariable Long tradeId) {
+    public ResponseEntity<SuccessResponse<Void>> tradeMark(@PassportUser String userId, @PathVariable Long tradeId) {
         tradeUserService.tradeMark(userId, tradeId);
-        return ResponseEntity.ok().build();
+        return SuccessResponse.toNoContent();
     }
 
     @GetMapping("/marks")

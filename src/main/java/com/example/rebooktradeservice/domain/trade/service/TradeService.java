@@ -43,12 +43,12 @@ public class TradeService {
         String imageUrl = s3Service.upload(file);
 
         // 2. Trade 엔티티 생성 및 저장
-        Trade trade = new Trade(request, imageUrl, userId);
+        Trade trade = request.toEntity(imageUrl, userId);
         tradeWriter.save(trade);
 
         // 3. 찜한 사용자들에게 알림 발송 (Outbox 패턴)
         String content = "찜한 도서의 새로운 거래가 등록되었습니다.";
-        NotificationTradeMessage message = new NotificationTradeMessage(trade.getId(), content, request.bookId());
+        NotificationTradeMessage message = NotificationTradeMessage.of(trade.getId(), content, request.bookId());
         outboxWriter.save(message);
     }
 
@@ -76,7 +76,7 @@ public class TradeService {
         // 3. 가격 변동 시 알림 발송
         if (request.price() != trade.getPrice()) {
             String content = "찜한 제품의 가격이 변동되었습니다.";
-            NotificationTradeMessage message = new NotificationTradeMessage(tradeId, content, request.bookId());
+            NotificationTradeMessage message = NotificationTradeMessage.of(tradeId, content, request.bookId());
             outboxWriter.save(message);
         }
 
@@ -114,7 +114,7 @@ public class TradeService {
         Trade trade = tradeReader.findById(tradeId);
 
         // 2. DTO 변환 및 찜 여부 체크
-        TradeResponse response = new TradeResponse(trade);
+        TradeResponse response = TradeResponse.from(trade);
         return checkMarking(response, userId);
     }
 
@@ -123,7 +123,7 @@ public class TradeService {
         Page<Trade> trades = tradeReader.findByUserId(userId, pageable);
 
         // 2. DTO 변환 및 찜 여부 체크
-        Page<TradeResponse> responses = trades.map(TradeResponse::new)
+        Page<TradeResponse> responses = trades.map(TradeResponse::from)
             .map(res -> checkMarking(res, userId));
 
         return PageResponse.from(responses);
@@ -134,7 +134,7 @@ public class TradeService {
         Page<Trade> trades = tradeReader.findByBookId(bookId, pageable);
 
         // 2. DTO 변환 및 찜 여부 체크
-        Page<TradeResponse> responses = trades.map(TradeResponse::new)
+        Page<TradeResponse> responses = trades.map(TradeResponse::from)
             .map(res -> checkMarking(res, userId));
 
         return PageResponse.from(responses);
@@ -154,7 +154,7 @@ public class TradeService {
         Page<Trade> trades = tradeReader.findByBookIdIn(bookIds, pageable);
 
         // 4. DTO 변환 및 찜 여부 체크
-        Page<TradeResponse> responses = trades.map(TradeResponse::new)
+        Page<TradeResponse> responses = trades.map(TradeResponse::from)
             .map(res -> checkMarking(res, userId));
 
         return PageResponse.from(responses);
@@ -165,7 +165,7 @@ public class TradeService {
         Page<Trade> trades = tradeReader.findByUserId(userId, pageable);
 
         // 2. DTO 변환
-        Page<TradeResponse> responses = trades.map(TradeResponse::new);
+        Page<TradeResponse> responses = trades.map(TradeResponse::from);
 
         return PageResponse.from(responses);
     }
@@ -177,7 +177,7 @@ public class TradeService {
     }
 
     private TradeResponse checkMarking(TradeResponse res, String userId) {
-        TradeUserId tradeUserId = new TradeUserId(res.tradeId(), userId);
+        TradeUserId tradeUserId = TradeUserId.of(res.tradeId(), userId);
         if (tradeUserReader.isMarked(tradeUserId)) {
             return res.withMarked(true);
         }

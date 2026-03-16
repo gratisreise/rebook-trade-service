@@ -6,7 +6,7 @@ public record NotificationTradeMessage(
     String tradeId,
     String bookId
 ) {
-    public NotificationTradeMessage(Long tradeId, String content, Long bookId) {
-        this(content, "TRADE", tradeId.toString(), bookId.toString());
+    public static NotificationTradeMessage of(Long tradeId, String content, Long bookId) {
+        return new NotificationTradeMessage(content, "TRADE", tradeId.toString(), bookId.toString());
     }
 }

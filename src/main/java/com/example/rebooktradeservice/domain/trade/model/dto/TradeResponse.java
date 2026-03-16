@@ -3,7 +3,9 @@ package com.example.rebooktradeservice.domain.trade.model.dto;
 import com.example.rebooktradeservice.common.enums.State;
 import com.example.rebooktradeservice.domain.trade.model.entity.Trade;
 import java.time.LocalDateTime;
+import lombok.Builder;
 
+@Builder
 public record TradeResponse(
     Long tradeId,
     Long bookId,
@@ -18,37 +20,37 @@ public record TradeResponse(
     LocalDateTime updatedAt,
     boolean isMarked
 ) {
-    public TradeResponse(Trade trade) {
-        this(
-            trade.getId(),
-            trade.getBookId(),
-            trade.getUserId(),
-            trade.getTitle(),
-            trade.getContent(),
-            trade.getRating(),
-            trade.getPrice(),
-            trade.getState(),
-            trade.getImageUrl(),
-            trade.getCreatedAt(),
-            trade.getUpdatedAt(),
-            false
-        );
+    public static TradeResponse from(Trade trade) {
+        return TradeResponse.builder()
+            .tradeId(trade.getId())
+            .bookId(trade.getBookId())
+            .userId(trade.getUserId())
+            .title(trade.getTitle())
+            .content(trade.getContent())
+            .rating(trade.getRating())
+            .price(trade.getPrice())
+            .state(trade.getState())
+            .imageUrl(trade.getImageUrl())
+            .createdAt(trade.getCreatedAt())
+            .updatedAt(trade.getUpdatedAt())
+            .isMarked(false)
+            .build();
     }
 
     public TradeResponse withMarked(boolean marked) {
-        return new TradeResponse(
-            tradeId,
-            bookId,
-            userId,
-            title,
-            content,
-            rating,
-            price,
-            state,
-            imageUrl,
-            createdAt,
-            updatedAt,
-            marked
-        );
+        return TradeResponse.builder()
+            .tradeId(tradeId)
+            .bookId(bookId)
+            .userId(userId)
+            .title(title)
+            .content(content)
+            .rating(rating)
+            .price(price)
+            .state(state)
+            .imageUrl(imageUrl)
+            .createdAt(createdAt)
+            .updatedAt(updatedAt)
+            .isMarked(marked)
+            .build();
     }
 }

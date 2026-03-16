@@ -16,4 +16,8 @@ public class TradeUserId implements Serializable {
 
     private Long tradeId;
     private String userId;
+
+    public static TradeUserId of(Long tradeId, String userId) {
+        return new TradeUserId(tradeId, userId);
+    }
 }

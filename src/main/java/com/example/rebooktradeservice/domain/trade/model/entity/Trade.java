@@ -64,15 +64,18 @@ public class Trade {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
-    public Trade(TradeRequest request, String imageUrl, String userId) {
-        this.bookId = request.bookId();
-        this.userId = userId;
-        this.title = request.title();
-        this.content = request.content();
-        this.imageUrl = imageUrl;
-        this.rating = request.rating();
-        this.price = request.price();
-        this.state = request.state();
+    public static Trade of(Long bookId, String userId, String title, String content,
+                           String imageUrl, String rating, Integer price, State state) {
+        return Trade.builder()
+            .bookId(bookId)
+            .userId(userId)
+            .title(title)
+            .content(content)
+            .imageUrl(imageUrl)
+            .rating(rating)
+            .price(price)
+            .state(state)
+            .build();
     }
 
     public void update(TradeRequest request, String userId) {

@@ -26,7 +26,7 @@ public class TradeUserService {
 
     @Transactional
     public void tradeMark(String userId, Long tradeId) {
-        TradeUserId tradeUserId = new TradeUserId(tradeId, userId);
+        TradeUserId tradeUserId = TradeUserId.of(tradeId, userId);
 
         // 1. Trade 존재 여부 확인
         if (!tradeReader.existsById(tradeId)) {
@@ -43,7 +43,7 @@ public class TradeUserService {
         // 3. 찜하지 않은 경우 -> 찜 추가
         else {
             Trade trade = tradeReader.findById(tradeId);
-            TradeUser tradeUser = new TradeUser(tradeUserId, trade);
+            TradeUser tradeUser = TradeUser.of(tradeUserId, trade);
             tradeUserWriter.save(tradeUser);
             log.info("Bookmark added: userId={}, tradeId={}", userId, tradeId);
         }
@@ -55,6 +55,6 @@ public class TradeUserService {
         Page<Trade> trades = tradeUserReader.findMarkedTradesByUserId(userId, pageable);
 
         // 2. DTO 변환 (찜한 목록이므로 isMarked = true)
-        return trades.map(trade -> new TradeResponse(trade).withMarked(true));
+        return trades.map(trade -> TradeResponse.from(trade).withMarked(true));
     }
 }

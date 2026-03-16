@@ -25,4 +25,8 @@ public class TradeUser {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "trade_id")
     private Trade trade;
+
+    public static TradeUser of(TradeUserId tradeUserId, Trade trade) {
+        return new TradeUser(tradeUserId, trade);
+    }
 }
