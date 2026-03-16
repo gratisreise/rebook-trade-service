@@ -1,4 +1,4 @@
-# Rebook Trading Service
+# Rebook Trade Service
 
 <div align="center">
 
@@ -21,7 +21,7 @@
 
 ## 1. 개요
 
-**Rebook Trading Service**는 중고 도서 거래 플랫폼 Rebook의 핵심 백엔드 마이크로서비스로, 사용자 간 도서 거래를 관리하고 조율합니다. Spring Boot 기반으로 구현된 본 서비스는 **서비스 디스커버리**, **중앙화된 설정 관리**, **비동기 메시징**을 통한 확장 가능한 구조를 제공합니다.
+**Rebook Trade Service**는 중고 도서 거래 플랫폼 Rebook의 핵심 백엔드 마이크로서비스로, 사용자 간 도서 거래를 관리하고 조율합니다. Spring Boot 기반으로 구현된 본 서비스는 **서비스 디스커버리**, **중앙화된 설정 관리**, **비동기 메시징**을 통한 확장 가능한 구조를 제공합니다.
 
 
 ### 서비스 역할
@@ -167,7 +167,7 @@
          ├──────────────┬──────────────┬──────────────┐
          │              │              │              │
     ┌────▼────┐    ┌────▼────┐   ┌────▼────┐    ┌────▼────┐
-    │ Trading │    │  Book   │   │  User   │    │ Notif.  │
+    │ Trade │    │  Book   │   │  User   │    │ Notif.  │
     │ Service │◄───┤ Service │   │ Service │    │ Service │
     └────┬────┘    └─────────┘   └─────────┘    └────▲────┘
          │         (OpenFeign)                        │
@@ -222,7 +222,7 @@ public class NotificationPublisher {
 
 ```
 ┌─────────────────────────────┐
-│        Trading              │
+│        Trade              │
 ├─────────────────────────────┤
 │ PK  id (Long)               │
 │     userId (String)         │
@@ -238,9 +238,9 @@ public class NotificationPublisher {
               │
               ▼
 ┌─────────────────────────────┐
-│      TradingUser            │  (찜하기 Join Table)
+│      TradeUser            │  (찜하기 Join Table)
 ├─────────────────────────────┤
-│ PK  tradingId (Long)        │ ← Composite Key
+│ PK  tradeId (Long)        │ ← Composite Key
 │ PK  userId (String)         │ ← Composite Key
 │     createdAt (LocalDateTime)│
 └─────────────────────────────┘
@@ -248,7 +248,7 @@ public class NotificationPublisher {
 
 **엔티티 설계 패턴**:
 - **JPA Auditing**: `@EntityListeners(AuditingEntityListener.class)`로 생성/수정 시간 자동 관리
-- **복합키 (Composite Key)**: `TradingUserId` 임베디드 클래스로 사용자-거래 다대다 관계 표현
+- **복합키 (Composite Key)**: `TradeUserId` 임베디드 클래스로 사용자-거래 다대다 관계 표현
 - **상태 관리**: `State` enum (판매중, 예약중, 판매완료)을 STRING으로 DB 저장
 
 
@@ -256,26 +256,26 @@ public class NotificationPublisher {
 
 ### 6.1 API 엔드포인트 상세
 
-#### 6.1.1 거래 관리 API (`TradingController`)
+#### 6.1.1 거래 관리 API (`TradeController`)
 
 | Method | Endpoint | Summary |
 |--------|----------|---------|
-| **POST** | `/api/tradings` | 거래 등록 |
-| **GET** | `/api/tradings/{tradingId}` | 거래 상세 조회 |
-| **PATCH** | `/api/tradings/{tradingId}` | 거래 상태 수정 |
-| **PUT** | `/api/tradings/{tradingId}` | 거래 정보 수정 |
-| **DELETE** | `/api/tradings/{tradingId}` | 거래 삭제 |
-| **GET** | `/api/tradings/me` | 내 거래 목록 조회 |
-| **GET** | `/api/tradings/books/{bookId}` | 특정 도서 거래 목록 |
-| **GET** | `/api/tradings/recommendations` | 추천 거래 목록 |
-| **GET** | `/api/tradings/others/{userId}` | 타인의 거래 목록 |
+| **POST** | `/api/trades` | 거래 등록 |
+| **GET** | `/api/trades/{tradeId}` | 거래 상세 조회 |
+| **PATCH** | `/api/trades/{tradeId}` | 거래 상태 수정 |
+| **PUT** | `/api/trades/{tradeId}` | 거래 정보 수정 |
+| **DELETE** | `/api/trades/{tradeId}` | 거래 삭제 |
+| **GET** | `/api/trades/me` | 내 거래 목록 조회 |
+| **GET** | `/api/trades/books/{bookId}` | 특정 도서 거래 목록 |
+| **GET** | `/api/trades/recommendations` | 추천 거래 목록 |
+| **GET** | `/api/trades/others/{userId}` | 타인의 거래 목록 |
 
-#### 6.1.2 찜하기 API (`TradingUserController`)
+#### 6.1.2 찜하기 API (`TradeUserController`)
 
 | Method | Endpoint | Summary |
 |--------|----------|---------|
-| **POST** | `/api/tradings/{tradingId}/marks` | 거래 찜하기/취소 (토글) |
-| **GET** | `/api/tradings/marks` | 찜한 거래 목록 조회 |
+| **POST** | `/api/trades/{tradeId}/marks` | 거래 찜하기/취소 (토글) |
+| **GET** | `/api/trades/marks` | 찜한 거래 목록 조회 |
 
 
 ## 7. 프로젝트 구조
@@ -301,7 +301,7 @@ public class NotificationPublisher {
 ### 폴더 구조
 
 ```
-src/main/java/com/example/rebooktradingservice/
+src/main/java/com/example/rebooktradeservice/
 ├── advice/                   # 전역 예외 처리
 ├── common/                   # 응답 표준화
 ├── config/                   # RabbitMQ, S3, JPA 설정
@@ -310,9 +310,9 @@ src/main/java/com/example/rebooktradingservice/
 ├── exception/                # 커스텀 예외
 ├── feigns/                   # OpenFeign 클라이언트 (Book Service)
 ├── model/
-│   ├── entity/              # JPA 엔티티 (Trading, TradingUser)
+│   ├── entity/              # JPA 엔티티 (Trade, TradeUser)
 │   └── message/             # RabbitMQ 메시지 DTO
 ├── repository/              # Spring Data JPA 리포지토리
-└── service/                 # 비즈니스 로직 (Trading, S3, Notification)
+└── service/                 # 비즈니스 로직 (Trade, S3, Notification)
 ```
 

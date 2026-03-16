@@ -1,6 +1,6 @@
 spring:
   application:
-    name: trading-service
+    name: trade-service
 
   profiles:
     active: dev
