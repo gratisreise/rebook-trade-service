@@ -35,7 +35,6 @@ public class GeminiService {
     return parseJson(rawResponse, clazz);
   }
 
-
   // --- [Private] ---
 
   //텍스트
@@ -53,7 +52,6 @@ public class GeminiService {
       }
 
       return resultText;
-
     } catch (Exception e) {
       throw new BusinessException(ErrorCode.EXTERNAL_API_ERROR);
     }

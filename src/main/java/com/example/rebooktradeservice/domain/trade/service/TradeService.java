@@ -3,6 +3,10 @@ package com.example.rebooktradeservice.domain.trade.service;
 import com.example.rebooktradeservice.common.enums.State;
 import com.example.rebooktradeservice.common.exception.TradeException;
 import com.example.rebooktradeservice.domain.outbox.OutboxWriter;
+import com.example.rebooktradeservice.domain.trade.model.dto.BundleTradeRequest;
+import com.example.rebooktradeservice.domain.trade.model.dto.BundleTradeRequest.TradeItem;
+import com.example.rebooktradeservice.domain.trade.model.dto.BundleTradeResponse;
+import com.example.rebooktradeservice.domain.trade.model.dto.BundleTradeResponse.CreatedTradeItem;
 import com.example.rebooktradeservice.domain.trade.model.dto.TradeRequest;
 import com.example.rebooktradeservice.domain.trade.model.dto.TradeResponse;
 import com.example.rebooktradeservice.domain.trade.model.entity.Trade;
@@ -15,6 +19,7 @@ import com.example.rebooktradeservice.external.s3.S3Service;
 import com.example.rebooktradeservice.clientfeign.book.BookClient;
 import com.rebook.common.core.response.PageResponse;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -168,6 +173,95 @@ public class TradeService {
         Page<TradeResponse> responses = trades.map(TradeResponse::from);
 
         return PageResponse.from(responses);
+    }
+
+    // ========== Bundle Trade Registration ==========
+
+    @Transactional
+    public BundleTradeResponse postBundleTrades(BundleTradeRequest request, String userId, List<MultipartFile> files)
+        throws IOException {
+        // 1. 파일 개수 검증
+        if (files == null || files.size() != request.trades().size()) {
+            throw TradeException.invalidInput("Number of files must match number of trades");
+        }
+
+        // 2. 각 Trade에 대해 이미지 업로드 및 엔티티 생성
+        List<Trade> trades = new ArrayList<>();
+        List<CreatedTradeItem> createdItems = new ArrayList<>();
+
+        for (int i = 0; i < request.trades().size(); i++) {
+            TradeItem item = request.trades().get(i);
+            MultipartFile file = files.get(i);
+
+            // S3에 이미지 업로드
+            String imageUrl = s3Service.upload(file);
+
+            // Trade 엔티티 생성 (WAITING 상태로 생성)
+            Trade trade = Trade.builder()
+                .bookId(item.bookId())
+                .userId(userId)
+                .title("AI 평가 대기 중")  // 임시 제목
+                .content("AI 평가 대기 중")  // 임시 내용
+                .imageUrl(imageUrl)
+                .rating("PENDING")  // 평가 대기 상태
+                .price(item.price())
+                .state(State.WAITING)
+                .build();
+
+            trades.add(trade);
+        }
+
+        // 3. 일괄 저장
+        List<Trade> savedTrades = tradeWriter.saveAll(trades);
+
+        // 4. 응답 생성
+        for (int i = 0; i < savedTrades.size(); i++) {
+            Trade savedTrade = savedTrades.get(i);
+            createdItems.add(new CreatedTradeItem(
+                savedTrade.getId(),
+                savedTrade.getBookId(),
+                savedTrade.getImageUrl()
+            ));
+        }
+
+        log.info("Bundle trades created for user {}: {} trades", userId, savedTrades.size());
+
+        return new BundleTradeResponse(savedTrades.size(), createdItems);
+    }
+
+    // ========== Waiting Trades ==========
+
+    public PageResponse<TradeResponse> getWaitingTrades(String userId, Pageable pageable) {
+        Page<Trade> trades = tradeReader.findByUserIdAndState(userId, State.WAITING, pageable);
+        Page<TradeResponse> responses = trades.map(TradeResponse::from);
+        return PageResponse.from(responses);
+    }
+
+    // ========== Complete Trade After Assessment ==========
+
+    @Transactional
+    public void completeTradeAfterAssessment(Long tradeId, String userId, String title, String content) {
+        // 1. Trade 조회
+        Trade trade = tradeReader.findById(tradeId);
+
+        // 2. 권한 검증
+        validateOwnership(trade, userId);
+
+        // 3. 상태 검증 (AVAILABLE 상태에서만 완료 가능)
+        if (trade.getState() != State.AVAILABLE) {
+            throw TradeException.invalidStateTransition(
+                "Trade must be in AVAILABLE state to complete. Current state: " + trade.getState());
+        }
+
+        // 4. 제목과 내용 업데이트
+        tradeWriter.updateTitleAndContent(tradeId, title, content);
+
+        // 5. 찜한 사용자들에게 알림 발송 (Outbox 패턴)
+        String notificationContent = "찜한 도서의 새로운 거래가 등록되었습니다.";
+        NotificationTradeMessage message = NotificationTradeMessage.of(tradeId, notificationContent, trade.getBookId());
+        outboxWriter.save(message);
+
+        log.info("Trade {} completed with title: {}", tradeId, title);
     }
 
     private void validateOwnership(Trade trade, String userId) {
