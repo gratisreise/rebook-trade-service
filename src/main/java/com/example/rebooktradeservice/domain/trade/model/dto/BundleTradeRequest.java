@@ -1,0 +1,20 @@
+package com.example.rebooktradeservice.domain.trade.model.dto;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import java.util.List;
+
+public record BundleTradeRequest(
+    @NotEmpty @Valid
+    List<TradeItem> trades
+) {
+    public record TradeItem(
+        @NotNull Long bookId,
+        @NotBlank String bookTitle,
+        @NotBlank String author,
+        @NotBlank String isbn,
+        @NotNull Integer price
+    ) {}
+}

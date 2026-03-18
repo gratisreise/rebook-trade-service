@@ -1,7 +1,10 @@
 package com.example.rebooktradeservice.domain.trade.service.writer;
 
+import com.example.rebooktradeservice.common.enums.BookCondition;
+import com.example.rebooktradeservice.common.enums.State;
 import com.example.rebooktradeservice.domain.trade.model.entity.Trade;
 import com.example.rebooktradeservice.domain.trade.repository.TradeRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +21,28 @@ public class TradeWriter {
     }
 
     @Transactional
+    public List<Trade> saveAll(List<Trade> trades) {
+        return tradeRepository.saveAll(trades);
+    }
+
+    @Transactional
     public void deleteById(Long tradeId) {
         tradeRepository.deleteById(tradeId);
+    }
+
+    @Transactional
+    public void updateConditionAndState(Long tradeId, BookCondition condition, State state) {
+        Trade trade = tradeRepository.findById(tradeId)
+            .orElseThrow(() -> new IllegalArgumentException("Trade not found with id: " + tradeId));
+        trade.setRating(condition.name());
+        trade.setState(state);
+    }
+
+    @Transactional
+    public void updateTitleAndContent(Long tradeId, String title, String content) {
+        Trade trade = tradeRepository.findById(tradeId)
+            .orElseThrow(() -> new IllegalArgumentException("Trade not found with id: " + tradeId));
+        trade.setTitle(title);
+        trade.setContent(content);
     }
 }

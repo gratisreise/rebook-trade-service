@@ -1,5 +1,6 @@
 package com.example.rebooktradeservice.domain.trade.service.reader;
 
+import com.example.rebooktradeservice.common.enums.State;
 import com.example.rebooktradeservice.common.exception.TradeException;
 import com.example.rebooktradeservice.domain.trade.model.entity.Trade;
 import com.example.rebooktradeservice.domain.trade.repository.TradeRepository;
@@ -36,5 +37,13 @@ public class TradeReader {
 
     public Page<Trade> findByBookIdIn(List<Long> bookIds, Pageable pageable) {
         return tradeRepository.findByBookIdIn(bookIds, pageable);
+    }
+
+    public Page<Trade> findByUserIdAndState(String userId, State state, Pageable pageable) {
+        return tradeRepository.findByUserIdAndState(userId, state, pageable);
+    }
+
+    public List<Trade> findByUserIdAndState(String userId, State state) {
+        return tradeRepository.findByUserIdAndState(userId, state);
     }
 }

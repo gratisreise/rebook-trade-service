@@ -23,4 +23,9 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
     Integer countByUserId(String userId);
 
     List<Trade> findByUserId(String userId);
+
+    // State-based queries
+    Page<Trade> findByUserIdAndState(String userId, State state, Pageable pageable);
+
+    List<Trade> findByUserIdAndState(String userId, State state);
 }
