@@ -156,100 +156,8 @@
 ---
 
 ## 5. 아키텍처
-
-### 5.1 마이크로서비스 아키텍처
-
-```
-┌─────────────────┐
-│  API Gateway    │ ← 인증 및 라우팅 (X-User-Id 헤더 주입)
-└────────┬────────┘
-         │
-         ├──────────────┬──────────────┬──────────────┐
-         │              │              │              │
-    ┌────▼────┐    ┌────▼────┐   ┌────▼────┐    ┌────▼────┐
-    │ Trade │    │  Book   │   │  User   │    │ Notif.  │
-    │ Service │◄───┤ Service │   │ Service │    │ Service │
-    └────┬────┘    └─────────┘   └─────────┘    └────▲────┘
-         │         (OpenFeign)                        │
-         │                                            │
-         │         ┌──────────────┐                   │
-         └────────►│  RabbitMQ    │───────────────────┘
-                   │  (AMQP)      │  (Notification Events)
-                   └──────────────┘
-
-    ┌─────────────────────────────────────────────┐
-    │        Infrastructure Services              │
-    ├─────────────────────────────────────────────┤
-    │  Eureka  │  Config Server  │  PostgreSQL   │
-    │  Redis   │  AWS S3         │  Prometheus   │
-    └─────────────────────────────────────────────┘
-```
-
-### 5.2 서비스 통신 패턴
-
-#### 1. 동기 통신 (OpenFeign)
-```java
-@FeignClient(name = "book-service")
-public interface BookClient {
-    // Book Service에서 사용자의 추천 도서 ID 목록 조회
-    @GetMapping("/api/books/recommendations")
-    List<Long> getRecommendedBookIds(@RequestHeader("X-User-Id") String userId);
-}
-```
-- **사용 사례**: 사용자 맞춤 도서 추천 거래 목록 조회
-- **로드 밸런싱**: Eureka를 통한 자동 서비스 탐색 및 로드 밸런싱
-
-#### 2. 비동기 통신 (RabbitMQ)
-```java
-@Service
-public class NotificationPublisher {
-    // Notification Service로 거래 알림 메시지 발행
-    public void publishTradeNotification(NotificationTradeMessage message) {
-        rabbitTemplate.convertAndSend(exchange, routingKey, message);
-    }
-}
-```
-- **사용 사례**: 거래 생성/가격 변동 시 찜한 사용자에게 알림 전송
-- **메시지 포맷**: JSON 직렬화된 `NotificationTradeMessage` DTO
-
-#### 3. 서비스 디스커버리 (Eureka)
-- 모든 마이크로서비스가 Eureka Server에 자동 등록
-- 서비스 이름(`book-service`)으로 동적 라우팅
-- 헬스체크 기반 자동 장애 감지
-
-
-### 5.3 엔티티 관계도 (ERD)
-
-```
-┌─────────────────────────────┐
-│        Trade              │
-├─────────────────────────────┤
-│ PK  id (Long)               │
-│     userId (String)         │
-│     bookId (Long)           │
-│     state (State enum)      │
-│     price (Integer)         │
-│     imageUrl (String)       │
-│     createdAt (LocalDateTime)│
-│     updatedAt (LocalDateTime)│
-└─────────────────────────────┘
-              │
-              │ 1:N
-              │
-              ▼
-┌─────────────────────────────┐
-│      TradeUser            │  (찜하기 Join Table)
-├─────────────────────────────┤
-│ PK  tradeId (Long)        │ ← Composite Key
-│ PK  userId (String)         │ ← Composite Key
-│     createdAt (LocalDateTime)│
-└─────────────────────────────┘
-```
-
-**엔티티 설계 패턴**:
-- **JPA Auditing**: `@EntityListeners(AuditingEntityListener.class)`로 생성/수정 시간 자동 관리
-- **복합키 (Composite Key)**: `TradeUserId` 임베디드 클래스로 사용자-거래 다대다 관계 표현
-- **상태 관리**: `State` enum (판매중, 예약중, 판매완료)을 STRING으로 DB 저장
+![ai거래묶음등록](~~~)
+![ai거래상태측정](~~~)
 
 
 ## 6. API 문서
@@ -279,26 +187,6 @@ public class NotificationPublisher {
 
 
 ## 7. 프로젝트 구조
-
-### 주요 디렉토리 설명
-
-| 디렉토리 | 역할 | 주요 기능 |
-|---------|------|----------|
-| **advice/** | 전역 예외 처리 | `@RestControllerAdvice`로 모든 컨트롤러 예외 통합 핸들링 |
-| **common/** | 응답 표준화 | 통일된 API 응답 구조 제공 (`CommonResult`, `SingleResult`, `PageResponse`) |
-| **config/** | 인프라 설정 | RabbitMQ, S3, JPA Auditing 등 외부 서비스 연동 설정 |
-| **controller/** | REST API | 엔드포인트 정의 및 Swagger 문서화 (`@Tag`, `@Operation`) |
-| **enums/** | 상태 관리 | 거래 상태 enum (판매중, 예약중, 판매완료) |
-| **exception/** | 커스텀 예외 | 도메인별 예외 클래스 (404, 409, 403, 400) |
-| **feigns/** | 서비스 간 통신 | OpenFeign을 통한 Book Service 동기 호출 |
-| **model/entity/** | 도메인 모델 | JPA 엔티티 및 복합키 정의 |
-| **model/** (DTO) | 데이터 전송 | 요청/응답 DTO 및 메시징 메시지 |
-| **repository/** | 데이터 접근 | Spring Data JPA 리포지토리 인터페이스 |
-| **service/** | 비즈니스 로직 | 트랜잭션 관리, 권한 검증, 외부 서비스 연동 |
-
-
-
-### 폴더 구조
 
 ```
 src/main/java/com/example/rebooktradeservice/
